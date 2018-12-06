@@ -1,16 +1,17 @@
 package com.github.victorh1705.npuzzle.demo;
 
 import com.github.victorh1705.npuzzle.demo.enumeration.ETipoBusca;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class Puzzle {
     private int linhas = 3;
-    private int colunas = 3;
+    private int colunas = 2;
     private int nosExpandidos = 0;
     private int nosVisitados = 0;
     private int profundidade = 0;
@@ -43,11 +44,12 @@ public class Puzzle {
     }
 
     private void inicializa() {
-        valores = new ArrayList<>(linhas * colunas);
-        valoresBackup = new ArrayList<>(linhas * colunas);
-        auxVerificaLoop = new ArrayList<>(linhas * colunas);
-        estadosVisitados = new ArrayList<Item>(linhas * colunas * constanteDeSobra *
-                fatorMultiplicacao);
+        valores = new LinkedList<>();
+        valoresBackup = new LinkedList<>();
+        auxVerificaLoop = new LinkedList<>();
+        estadosVisitados = new LinkedList<>();
+//                (linhas * colunas * constanteDeSobra *
+//                fatorMultiplicacao);
     }
 
     public int getLinhas() {
@@ -72,6 +74,30 @@ public class Puzzle {
 
     public void setValores(List<Integer> valores) {
         this.valores = valores;
+    }
+
+    public int getPassosSolucao() {
+        return passosSolucao;
+    }
+
+    public void setPassosSolucao(int passosSolucao) {
+        this.passosSolucao = passosSolucao;
+    }
+
+    public int getPassosRestantes() {
+        return passosRestantes;
+    }
+
+    public void setPassosRestantes(int passosRestantes) {
+        this.passosRestantes = passosRestantes;
+    }
+
+    public double getCustoSolucao() {
+        return custoSolucao;
+    }
+
+    public void setCustoSolucao(double custoSolucao) {
+        this.custoSolucao = custoSolucao;
     }
 
     void backtracking() {
@@ -130,7 +156,7 @@ public class Puzzle {
             System.out.print("Executando busca em largura, aguarde...\n");
         else
             System.out.print("Executando busca ordenada, aguarde...\n");
-//        tempoInicial = new Date();
+        tempoInicial = new Date();
         boolean fracasso = false, sucesso = false;
         rodando = true;
         limpaEstadosVisitados();
@@ -138,24 +164,24 @@ public class Puzzle {
         while (!sucesso && !fracasso) {
             if ((posicaoAtualVisitados % 25000) == 0)
                 System.out.print("Aguarde mais um pouco...\n");
-            if (verificaSolucao())
+            if (verificaSolucao()) {
                 sucesso = true;
-            else {
+                System.out.println("sucesso");
+            }else {
                 if (!obterProximoEstado(ETipoBusca.LARGURA))
                     fracasso = true;
             }
         }
-//        tempoFinal = new Date();
+        tempoFinal = new Date();
         resultadoObtido = true;
         rodando = false;
         embaralhado = false;
         nosExpandidos = posicaoAtualVisitados;
         nosVisitados = contaEstadosFechados() + 1;
-//        tempoExecucao=(tempoFinal-tempoInicial)/1000.0;
-        fatorRamificacao = (float) nosExpandidos / (float) nosVisitados;
+        tempoExecucao = tempoFinal.getTime() - tempoInicial.getTime();
+        fatorRamificacao = (float) (nosExpandidos / nosVisitados);
         fatorMultiplicacao = 1;
         profundidade--;
-        //system("cls");
 
     }
 
@@ -224,7 +250,7 @@ public class Puzzle {
         embaralhado = false;
         nosExpandidos = posicaoAtualVisitados;
         nosVisitados = contaEstadosFechados() + 1;
-//        tempoExecucao=(tempoFinal-tempoInicial)/1000.0;
+        tempoExecucao = tempoFinal.getTime() - tempoInicial.getTime();
         fatorRamificacao = (float) nosExpandidos / (float) nosVisitados;
         fatorMultiplicacao = 1;
         profundidade--;
@@ -266,66 +292,65 @@ public class Puzzle {
 
     }
 
-    boolean obterProximoEstado(ETipoBusca tipoBusca) {
+    private boolean obterProximoEstado(ETipoBusca tipoBusca) {
         switch (tipoBusca) {
             case LARGURA:
-                for (int i = 0; i < posicaoAtualVisitados; i++) {
-                    Item _localVisitado = estadosVisitados.get(i);
-                    if (_localVisitado.isAtivo()) {
-                        for (int j = 0; j < (linhas * colunas); j++) {
-                            valores.add(j, _localVisitado.getEstado().get(j));
-                            if (valores.get(j) == -1)
-                                posicaoVazia = j;
-                        }
-                        _localVisitado.setAtivo(false);
-                        profundidadeAtual = _localVisitado.getProfundidade() + 1;
+                Iterator<Item> _visitados = estadosVisitados.iterator();
+                for (int i = 0; i < posicaoAtualVisitados && _visitados.hasNext(); i++) {
+                    Item next = _visitados.next();
+                    if (next.isAtivo()) {
+
+                        valores.clear();
+                        valores = next.getEstado().stream().collect(Collectors.toList());
+                        posicaoVazia = valores.indexOf(-1);
+                        next.setAtivo(false);
+
+                        profundidadeAtual = next.getProfundidade() + 1;
                         if (profundidade < profundidadeAtual)
                             profundidade = profundidadeAtual;
                         if ((posicaoAtualVisitados + 100) >
                                 (linhas * colunas * fatorMultiplicacao * constanteDeSobra)) {
                             aumentaTamanhoVetorVisitados();
                         }
-                        adicionaFilhosListaAbertos(_localVisitado.getId(), false);
+                        adicionaFilhosListaAbertos(next.getId(), false);
                         return true;
                     }
                 }
                 break;
             case PROFUNDIDADE:
                 for (int i = posicaoAtualVisitados - 1; i >= 0; i--) {
-                    if (estadosVisitados.get(i).isAtivo()) {
-                        for (int j = 0; j < (linhas * colunas); j++) {
-                            valores.add(j, estadosVisitados.get(i).getEstado().get(j));
-                            if (valores.get(j) == -1)
-                                posicaoVazia = j;
-                        }
-                        estadosVisitados.get(i).setAtivo(false);
-                        profundidadeAtual = estadosVisitados.get(i).getProfundidade() + 1;
-                        if (profundidade < profundidadeAtual)
-                            profundidade = profundidadeAtual;
+                    Item estadoAtual = estadosVisitados.get(i);
+                    if (estadoAtual.isAtivo()) {
+                        valores = estadoAtual.getEstado()
+                                .stream().collect(Collectors.toList());
+                        posicaoVazia = valores.indexOf(-1);
+                        estadoAtual.setAtivo(false);
+                        profundidadeAtual = estadoAtual.getProfundidade() + 1;
+
+                        if (profundidade < profundidadeAtual) profundidade = profundidadeAtual;
                         if ((posicaoAtualVisitados + 100) >
                                 (linhas * colunas * fatorMultiplicacao * constanteDeSobra)) {
                             aumentaTamanhoVetorVisitados();
                         }
-                        adicionaFilhosListaAbertos(estadosVisitados.get(i).getId(), true);
+                        adicionaFilhosListaAbertos(estadoAtual.getId(), true);
                         return true;
                     }
                 }
                 break;
             case GULOSA:
                 if (indiceMenorDistManhattan > -1) {
-                    for (int j = 0; j < (linhas * colunas); j++) {
-                        valores.add(j, estadosVisitados.get(indiceMenorDistManhattan).getEstado().get(j));
-                        if (valores.get(j) == -1)
-                            posicaoVazia = j;
-                    }
-                    estadosVisitados.get(indiceMenorDistManhattan).setAtivo(false);
-                    profundidadeAtual = estadosVisitados.get(indiceMenorDistManhattan).getProfundidade() + 1;
-                    if (profundidade < profundidadeAtual)
-                        profundidade = profundidadeAtual;
+                    Item estadoAtual = estadosVisitados.get(indiceMenorDistManhattan);
+                    valores = estadoAtual.getEstado().stream().collect(Collectors.toList());
+                    posicaoVazia = valores.indexOf(-1);
+                    estadoAtual.setAtivo(false);
+                    profundidadeAtual = estadoAtual.getProfundidade() + 1;
+
+                    if (profundidade < profundidadeAtual) profundidade = profundidadeAtual;
                     if ((posicaoAtualVisitados + 100) > (linhas * colunas * fatorMultiplicacao * constanteDeSobra)) {
                         aumentaTamanhoVetorVisitados();
                     }
-                    int idAtual = estadosVisitados.get(indiceMenorDistManhattan).getId();
+                    int idAtual = estadoAtual.getId();
+
                     indiceMenorDistManhattan = -1;
                     valorMenorDistancia = 1000;
                     adicionaFilhosListaAbertos(idAtual, false);
@@ -344,25 +369,25 @@ public class Puzzle {
                 break;
             case AESTRELA:
                 if (indiceMenorDistManhattan > -1) {
-                    for (int j = 0; j < (linhas * colunas); j++) {
-                        valores.add(j, estadosVisitados.get(indiceMenorDistManhattan).getEstado().get(j));
-                        if (valores.get(j) == -1)
-                            posicaoVazia = j;
-                    }
-                    estadosVisitados.get(indiceMenorDistManhattan).setAtivo(false);
-                    profundidadeAtual = estadosVisitados.get(indiceMenorDistManhattan).getProfundidade() + 1;
-                    if (profundidade < profundidadeAtual)
-                        profundidade = profundidadeAtual;
+                    Item estadoAtual = estadosVisitados.get(indiceMenorDistManhattan);
+                    valores = estadoAtual.getEstado().stream().collect(Collectors.toList());
+                    posicaoVazia = valores.indexOf(-1);
+
+                    estadoAtual.setAtivo(false);
+                    profundidadeAtual = estadoAtual.getProfundidade() + 1;
+                    if (profundidade < profundidadeAtual) profundidade = profundidadeAtual;
                     if ((posicaoAtualVisitados + 100) > (linhas * colunas * fatorMultiplicacao * constanteDeSobra)) {
                         aumentaTamanhoVetorVisitados();
                     }
-                    int idAtual = estadosVisitados.get(indiceMenorDistManhattan).getId();
+                    int idAtual = estadoAtual.getId();
+
                     indiceMenorDistManhattan = -1;
                     valorMenorDistancia = 1000;
                     adicionaFilhosListaAbertos(idAtual, false);
                     int indiceAtual = indiceMenorDistManhattan;
                     indiceMenorDistManhattan = -1;
                     valorMenorDistancia = 1000;
+
                     for (int i = 0; i < posicaoAtualVisitados; i++) {
                         if (estadosVisitados.get(i).isAtivo() &&
                                 estadosVisitados.get(i).getProfundidade() <
@@ -406,7 +431,7 @@ public class Puzzle {
         return false;
     }
 
-    void voltaProPai() {
+    private void voltaProPai() {
         int idPai = -1;
         for (int i = posicaoAtualVisitados - 1; i >= 0 && idPai == -1; i--) {
             if (estadosVisitados.get(i).isAtivo()) {
@@ -416,21 +441,18 @@ public class Puzzle {
         }
         for (int i = posicaoAtualVisitados - 1; i >= 0; i--) {
             if (estadosVisitados.get(i).getId() == idPai) {
-                for (int j = 0; j < linhas * colunas; j++) {
-                    valores.add(j, estadosVisitados.get(i).getEstado().get(j));
-                    if (valores.get(j) == -1)
-                        posicaoVazia = j;
-                }
+                valores.clear();
+                valores = estadosVisitados.get(i).getEstado().stream().collect(Collectors.toList());
+                posicaoVazia = valores.indexOf(-1);
+                break;
             }
         }
         idPaiAtual = idPai;
         voltouProPai = true;
     }
 
-    int escolherRegra() {
-        int regras[] = {
-                0, 2, 3, 1
-        };
+    private int escolherRegra() {
+        int regras[] = {0, 2, 3, 1};
         for (int i = 0; i < 4; i++) {
             if (realizaMovimento(regras[i]))
                 return regras[i];
@@ -438,7 +460,7 @@ public class Puzzle {
         return -1;
     }
 
-    void adicionaPaiListaAbertos(int idPai, boolean buscaProfundidade) {
+    private void adicionaPaiListaAbertos(int idPai, boolean buscaProfundidade) {
         Item novoEstado = new Item(posicaoAtualVisitados + 1, valores, idPai, 0,
                 -1, false);
         estadosVisitados.add(posicaoAtualVisitados, novoEstado);
@@ -447,7 +469,7 @@ public class Puzzle {
         adicionaFilhosListaAbertos(posicaoAtualVisitados, buscaProfundidade);
     }
 
-    void adicionaFilhosListaAbertos(int idPai, boolean buscaProfundidade) {
+    private void adicionaFilhosListaAbertos(int idPai, boolean buscaProfundidade) {
         int regras[] = {
                 0, 2, 3, 1
         };
@@ -461,26 +483,18 @@ public class Puzzle {
             geraFilho(regras[i], idPai);
     }
 
-    void adicionaNovoEstadoVisitado(int idPai) {
-        int profundidade;
-        if (idPai == -1)
-            profundidade = 0;
-        else
-            profundidade = estadosVisitados.get(idPai - 1).getProfundidade() + 1;
+    private void adicionaNovoEstadoVisitado(int idPai) {
+        int profundidade = (idPai == -1) ? 0 : (estadosVisitados.get(idPai - 1).getProfundidade() + 1);
 
         Item novoEstado = new Item(posicaoAtualVisitados + 1, null, idPai, 0,
                 0, true);
-        estadosVisitados.add(posicaoAtualVisitados, novoEstado);
+        novoEstado.setEstado( valores.stream().collect(Collectors.toList()));
+        if (novoEstado.getProfundidade() > profundidade) profundidade = novoEstado.getProfundidade();
+
+        estadosVisitados.set(posicaoAtualVisitados, novoEstado);
         //System.out.printf("id: %d , idPai: %d , profundidade: %d , estado : ",novoEstado.getId(),
         // novoEstado.getId()Pai, novoEstado.getProfundidade());
-        for (int i = 0; i < linhas * colunas; i++) {
-            novoEstado.getEstado().add(i, valores.get(i));
-            //System.out.printf("%d ",novoEstado.getEstado().get(i));
-        }
-        //System.out.printf("\n");
         posicaoAtualVisitados++;
-        if (novoEstado.getProfundidade() > profundidade)
-            profundidade = novoEstado.getProfundidade();
         if ((posicaoAtualVisitados + 100) > (linhas * colunas * fatorMultiplicacao * constanteDeSobra)) {
             aumentaTamanhoVetorVisitados();
         }
@@ -504,9 +518,7 @@ public class Puzzle {
     valores[4]=2;
     valores[5]=5;
     posicaoVazia=1;*/
-        for (int i = 0; i < linhas * colunas; i++) {
-            valoresBackup.add(i, valores.get(i));
-        }
+        valoresBackup = valores.stream().collect(Collectors.toList());
         embaralhado = true;
         resultadoObtido = false;
     }
@@ -516,7 +528,6 @@ public class Puzzle {
         resultadoObtido = false;
         embaralhado = false;
         valores.clear();
-        valores = new ArrayList<>(linhas * colunas);
         int i;
         for (i = 0; i < (linhas * colunas) - 1; i++) {
             valores.add(i, i + 1);
@@ -564,7 +575,7 @@ public class Puzzle {
         return false;
     }
 
-    void geraFilho(int movimento, int idPai) {
+    private void geraFilho(int movimento, int idPai) {
         switch (movimento) {
             case 0:
                 if (posicaoVazia + colunas < (linhas * colunas))
@@ -585,95 +596,76 @@ public class Puzzle {
         }
     }
 
-    boolean realizaTroca(int posicaoVazia, int novaPosicaoVazia) {
+    private boolean realizaTroca(int posicaoVazia, int novaPosicaoVazia) {
         if (verificaNaoGeraLoop(posicaoVazia, novaPosicaoVazia)) {
-            Collections.swap(valores,posicaoVazia,novaPosicaoVazia);
+            Collections.swap(valores, posicaoVazia, novaPosicaoVazia);
             return true;
         } else
             return false;
     }
 
-    void adicionaFilhoSeNaoGerarLoop(int posicaoVazia, int novaPosicaoVazia, int idPai) {
-        boolean naoGera;
-        boolean adiciona = true;
-        auxVerificaLoop.clear();
-        for (int i = 0; i < linhas * colunas; i++) {
-            auxVerificaLoop.add(i, valores.get(i));
+    private void adicionaFilhoSeNaoGerarLoop(int posicaoVazia, int novaPosicaoVazia, int idPai) {
+        auxVerificaLoop = valores.stream().collect(Collectors.toList());
+        Collections.swap(auxVerificaLoop, novaPosicaoVazia, posicaoVazia);
+        for (int i = 0; i < posicaoAtualVisitados; i++) {
+            String estadoString = listToString.apply(estadosVisitados.get(i).getEstado());
+            if (listToString.apply(auxVerificaLoop).equals(estadoString)) return;
+//            if (!estadosVisitados.get(i).isAtivo()) {
+//                if (!listToString.apply(auxVerificaLoop).equals(estadoString)) return;
+//            }
         }
-        auxVerificaLoop.add(posicaoVazia, auxVerificaLoop.get(novaPosicaoVazia));
-        auxVerificaLoop.add(novaPosicaoVazia, -1);
-        for (int i = 0; i < posicaoAtualVisitados && adiciona; i++) {
-            if (!estadosVisitados.get(i).isAtivo()) {
-                naoGera = false;
-                for (int j = 0; j < (linhas * colunas) && !naoGera; j++) {
-                    if (auxVerificaLoop.get(j) != estadosVisitados.get(i).getEstado().get(j))
-                        naoGera = true;
-                }
-                if (!naoGera)
-                    adiciona = false;
-            }
+        Item novoEstado = new Item(posicaoAtualVisitados + 1, auxVerificaLoop.stream().collect(Collectors.toList()),
+                idPai, profundidadeAtual, calculaDistanciaManhattan(), true);
+        //System.out.printf("id: %d , idPai: %d, profundidade: %d , distancia: %d , : ",
+        // novoEstado.getId(), novoEstado.getId()Pai, novoEstado.getProfundidade(),
+        // novoEstado.getDistManhattan());
+        //System.out.printf("\n");
+        if (valorMenorDistancia > novoEstado.getDistManhattan()) {
+            valorMenorDistancia = novoEstado.getDistManhattan();
+            indiceMenorDistManhattan = posicaoAtualVisitados;
         }
-        if (adiciona) {
-            Item novoEstado = new Item(posicaoAtualVisitados + 1, auxVerificaLoop.subList(0, auxVerificaLoop.size()),
-                    idPai, profundidadeAtual, calculaDistanciaManhattan(), true);
-            //System.out.printf("id: %d , idPai: %d, profundidade: %d , distancia: %d , : ",
-            // novoEstado.getId(), novoEstado.getId()Pai, novoEstado.getProfundidade(),
-            // novoEstado.getDistManhattan());
-            //System.out.printf("\n");
-            if (valorMenorDistancia > novoEstado.getDistManhattan()) {
-                valorMenorDistancia = novoEstado.getDistManhattan();
-                indiceMenorDistManhattan = posicaoAtualVisitados;
-            }
-            estadosVisitados.add(posicaoAtualVisitados, novoEstado);
-            posicaoAtualVisitados++;
-        }
+        estadosVisitados.add(posicaoAtualVisitados, novoEstado);
+        posicaoAtualVisitados++;
     }
 
-    int calculaDistanciaManhattan() {
-        List<Integer> distanciaUnitaria = new ArrayList<>(linhas * colunas);
+    private int calculaDistanciaManhattan() {
+        List<Integer> distanciaUnitaria = new LinkedList<>();
         int soma = 0;
         for (int i = 0; i < linhas * colunas; i++) {
-            distanciaUnitaria.add(i, auxVerificaLoop.get(i) - (i + 1));
-            if (distanciaUnitaria.get(i) < 0)
-                distanciaUnitaria.add(i, distanciaUnitaria.get(i) * -1);
-            distanciaUnitaria.add(i, (distanciaUnitaria.get(i) - (colunas * (distanciaUnitaria.get(i) / colunas)) +
-                    (distanciaUnitaria.get(i)) / colunas));
+            int inserir = auxVerificaLoop.get(i) - (i + 1) / colunas;
+            if (inserir < 0) inserir *= -1;
+            distanciaUnitaria.add(i, inserir);
             soma += distanciaUnitaria.get(i);
         }
         return soma;
     }
 
-    boolean verificaNaoGeraLoop(int posicaoVazia, int novaPosicaoVazia) {
+    private boolean verificaNaoGeraLoop(int posicaoVazia, int novaPosicaoVazia) {
         auxVerificaLoop = valores.stream().collect(Collectors.toList());
         Collections.swap(auxVerificaLoop, posicaoVazia, novaPosicaoVazia);
         for (int i = 0; i < posicaoAtualVisitados; i++) {
-            for (int j = 0; j < (linhas * colunas); j++) {
-                if (auxVerificaLoop.get(j).equals(estadosVisitados.get(i).getEstado().get(j))) {
-                    return false;
-                }
-            }
+            String estadoString = listToString.apply(estadosVisitados.get(i).getEstado());
+            if (listToString.apply(auxVerificaLoop).equals(estadoString)) return false;
         }
         return true;
     }
 
-    boolean verificaSolucao() {
+    private boolean verificaSolucao() {
         for (int i = 0; i < (linhas * colunas) - 1; i++)
             if (valores.get(i) != i + 1) return false;
-        int idSolucao = obterIdSolucao();
-            if (idSolucao == -1) return false;
+
+        int idSolucao;
+        if ((idSolucao = obterIdSolucao()) == -1) return false;
         custoSolucao = estadosVisitados.get(idSolucao - 1).getProfundidade();
         passosRestantes = (int) custoSolucao;
         return true;
     }
 
-    boolean verificaFracasso() {
-        for (int j = 0; j < (linhas * colunas); j++) {
-            if (!valoresBackup.get(j).equals(valores.get(j))) return false;
-        }
-        return true;
+    private boolean verificaFracasso() {
+        return !listToString.apply(valoresBackup).equals(listToString.apply(valores));
     }
 
-    int contaEstadosFechados() {
+    private int contaEstadosFechados() {
         int contador = 0;
         for (int i = 0; i < posicaoAtualVisitados; i++) {
             if (!estadosVisitados.get(i).isAtivo())
@@ -682,7 +674,7 @@ public class Puzzle {
         return contador;
     }
 
-    int contaEstadosAbertos() {
+    private int contaEstadosAbertos() {
         int contador = 0;
         for (int i = 0; i < posicaoAtualVisitados; i++) {
             if (estadosVisitados.get(i).isAtivo())
@@ -691,40 +683,45 @@ public class Puzzle {
         return contador;
     }
 
-    void limpaEstadosVisitados() {
+    private void limpaEstadosVisitados() {
         posicaoAtualVisitados = 0;
         estadosVisitados.clear();
     }
 
 
     int obterIdSolucao() {
+        List<Integer> list = IntStream.range(0, (linhas * colunas) - 1)
+                .mapToObj(i -> i + 1)
+                .collect(Collectors.toList());
+        String solucao = listToString.apply(list);
         for (int i = posicaoAtualVisitados - 1; i >= 0; i--) {
-            for (int j = 0; j < (linhas * colunas) - 1; j++) {
-                if (estadosVisitados.get(i).getEstado().get(j) == (j + 1)) {
-                    return i + 1;
-                }
-            }
+            if (listToString.apply(estadosVisitados.get(i).getEstado()).equals(solucao))
+                return i + 1;
         }
         return -1;
     }
 
-    void aumentaTamanhoVetorVisitados() {
+    private void aumentaTamanhoVetorVisitados() {
         fatorMultiplicacao++;
-        List<Item> estadosVisitadosAumentarTamanho =
-                new ArrayList<>(linhas * colunas * constanteDeSobra * fatorMultiplicacao);
+        List<Item> estadosVisitadosAumentarTamanho = new LinkedList<>();
         for (int i = 0; i < posicaoAtualVisitados; i++) {
-            estadosVisitadosAumentarTamanho.add(i, estadosVisitados.get(i));
+            estadosVisitadosAumentarTamanho.set(i, estadosVisitados.get(i));
             for (int j = 0; j < linhas * colunas; j++)
-                estadosVisitadosAumentarTamanho.get(i).getEstado().add(j, estadosVisitados.get(i).getEstado().get(j));
+                estadosVisitadosAumentarTamanho.get(i).getEstado().set(j, estadosVisitados.get(i).getEstado().get(j));
         }
         estadosVisitados.clear();
-        estadosVisitados = new ArrayList<>(linhas * colunas * constanteDeSobra * fatorMultiplicacao);
+        estadosVisitados = new LinkedList<>();
         for (int i = 0; i < posicaoAtualVisitados; i++) {
-            estadosVisitados.add(i, estadosVisitadosAumentarTamanho.get(i));
+            estadosVisitados.set(i, estadosVisitadosAumentarTamanho.get(i));
             for (int j = 0; j < linhas * colunas; j++)
-                estadosVisitados.get(i).getEstado().add(j, estadosVisitadosAumentarTamanho.get(i).getEstado().get(j));
+                estadosVisitados.get(i).getEstado().set(j, estadosVisitadosAumentarTamanho.get(i).getEstado().get(j));
         }
         estadosVisitadosAumentarTamanho = null;
     }
 
+    private String stringVetor(LinkedList<Integer> vetor) {
+        return StringUtils.join(vetor, ",");
+    }
+
+    private Function<List<Integer>, String> listToString = list -> StringUtils.join(list, ",");
 }

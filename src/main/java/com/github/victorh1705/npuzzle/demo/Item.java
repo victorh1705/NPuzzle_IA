@@ -11,6 +11,9 @@ public class Item {
     private int distManhattan;
     private boolean ativo;
 
+    public Item() {
+    }
+
     public Item(int id, List<Integer> estado, int idPai, int profundidade, int distManhattan, boolean ativo) {
         this.id = id;
         this.estado = estado;

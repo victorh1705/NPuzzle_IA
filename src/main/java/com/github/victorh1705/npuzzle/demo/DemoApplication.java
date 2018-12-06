@@ -13,7 +13,10 @@ public class DemoApplication {
         Puzzle puzzle = new Puzzle();
 
         puzzle.embaralhar();
-        puzzle.aEstrela();
+        puzzle.buscaLargura(false);
+//        puzzle.aEstrela();
         System.out.println("acabou");
+        System.out.println("Custo da Solucao : " + puzzle.getCustoSolucao());
+        System.out.println("Numero de Passos : " + puzzle.getPassosSolucao());
     }
 }
